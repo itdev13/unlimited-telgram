@@ -1,0 +1,28 @@
+{
+  "name": "telegram-connector-v2-backend",
+  "version": "2.0.0",
+  "description": "Telegram Connector v2 — multi-bot/multi-phone GHL integration with subscription billing",
+  "scripts": {
+    "start": "node src/main.js",
+    "start:dev": "node --watch src/main.js",
+    "lint": "eslint \"src/**/*.js\" --fix"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.3.0",
+    "multer": "^2.1.1",
+    "telegram": "^2.26.22"
+  },
+  "devDependencies": {
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.1"
+  }
+}
