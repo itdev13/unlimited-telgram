@@ -1,12 +1,12 @@
-import { PaperPlane, ExternalLink } from './Icons';
+import { ExternalLink } from './Icons';
 import { Badge } from './ui';
 
 export default function Header({ connectedCount = 0 }) {
   return (
     <header className="flex items-start justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3.5">
-        <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#2aa7e0] to-[#1784b8] flex items-center justify-center shadow-[var(--shadow-glow-tg)]">
-          <PaperPlane size={24} className="text-white -ml-0.5" />
+        <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-[var(--shadow-glow-tg)] ring-1 ring-black/5">
+          <img src="/logo.jpg" alt="Telegram Connector" className="w-full h-full object-cover" />
         </div>
         <div>
           <h1 className="text-[20px] font-extrabold text-slate-900 tracking-tight leading-tight">

@@ -126,6 +126,11 @@ async function bootstrap() {
   // ── Routes ───────────────────────────────────────────────────
   app.get('/health', (req, res) => res.status(200).json({ status: 'ok', version: '2.0.0' }));
 
+  // Brand logo (used by the OAuth success/error pages).
+  app.get('/logo.jpg', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '../logo.jpg'));
+  });
+
   app.use('/auth', createAuthRouter(authService));
   app.use('/subscription', createSubscriptionRouter(subscriptionService));
   app.use('/connections', createConnectionsRouter(connectionService, gramJsService, ssoMiddleware));

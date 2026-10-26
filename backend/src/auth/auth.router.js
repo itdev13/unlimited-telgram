@@ -1,152 +1,97 @@
 const { Router } = require('express');
 const { formatError } = require('../utils/format-error');
 
-function renderInstallSuccessPage({ alreadyCompleted = false } = {}) {
-  const heading = alreadyCompleted
-    ? 'Authorization Already Completed!'
-    : 'Connected Successfully!';
-  const subline = alreadyCompleted
-    ? 'Your account is already connected'
-    : 'Successfully connected to your account';
+const APP_NAME = 'Telegram Connector';
+const LOGO_URL = `${process.env.BACKEND_URL || ''}/logo.jpg`;
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Success - Vaultsuite</title>
+const PAGE_HEAD = (title) => `<meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title} · ${APP_NAME}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; margin: 0; padding: 20px;
+      -webkit-font-smoothing: antialiased;
+      background:
+        radial-gradient(900px 500px at 100% -10%, rgba(34,158,217,0.22), transparent 55%),
+        radial-gradient(800px 500px at -10% 110%, rgba(23,132,184,0.18), transparent 55%),
+        #0b1f2b;
     }
-    .container {
-      text-align: center;
-      background: #fff;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-      max-width: 540px;
-      margin: 20px;
+    .card {
+      width: 100%; max-width: 460px; background: #fff;
+      border-radius: 22px; padding: 40px 36px;
+      box-shadow: 0 30px 70px -20px rgba(2,15,25,0.55);
+      text-align: center; animation: pop .5s cubic-bezier(.22,1,.36,1) both;
     }
-    .icon { font-size: 64px; margin-bottom: 16px; }
-    h1 { color: #10B981; margin: 0 0 12px 0; font-size: 28px; }
-    p { color: #6B7280; margin: 10px 0; font-size: 15px; line-height: 1.6; }
-    .access-box {
-      background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
-      padding: 22px;
-      border-radius: 10px;
-      margin: 22px 0;
-      border: 2px solid #2563EB;
-      text-align: left;
+    @keyframes pop { from { opacity:0; transform: translateY(14px) scale(.97);} to {opacity:1; transform:none;} }
+    .brand { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom: 26px; }
+    .brand img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 4px 12px rgba(34,158,217,.3); }
+    .brand span { font-weight: 800; font-size: 16px; color: #0f2a3a; letter-spacing: -0.01em; }
+    .badge {
+      width: 72px; height: 72px; border-radius: 20px; margin: 0 auto 20px;
+      display:flex; align-items:center; justify-content:center; font-size: 34px;
     }
-    .access-box h3 { color: #1E40AF; font-size: 16px; margin: 0 0 12px 0; }
-    .step {
-      color: #374151;
-      font-size: 14px;
-      margin: 8px 0;
-      padding-left: 22px;
-      position: relative;
+    h1 { margin: 0 0 8px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+    .sub { color: #64748b; font-size: 14.5px; margin: 0 0 24px; line-height: 1.55; }
+    .steps {
+      text-align:left; background: #f6fbfe; border: 1px solid #d8eef9;
+      border-radius: 14px; padding: 18px 20px; margin: 0 0 18px;
     }
-    .step:before {
-      content: "→";
-      position: absolute;
-      left: 0;
-      color: #2563EB;
-      font-weight: bold;
-    }
-    .tip {
-      background: #FEF3C7;
-      padding: 14px;
-      border-radius: 8px;
-      margin-top: 18px;
-      border-left: 4px solid #F59E0B;
-      text-align: left;
-    }
-    .tip p { color: #92400E; font-size: 13px; font-weight: 600; margin: 0; }
-    .close-note { font-size: 13px; color: #9CA3AF; margin-top: 18px; }
-  </style>
-</head>
+    .steps h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: #1784b8; text-transform: uppercase; letter-spacing: .04em; }
+    .step { display:flex; gap:10px; align-items:flex-start; color:#334155; font-size:14px; margin: 9px 0; }
+    .step .n { flex: none; width: 20px; height: 20px; border-radius: 50%; background:#229ED9; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+    .note { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:13px; font-weight:600; border-radius:12px; padding:12px 14px; }
+    .close { color:#94a3b8; font-size:12.5px; margin-top: 18px; }
+    .err { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; font-size:13px; border-radius:12px; padding:12px 14px; margin:0 0 16px; word-break:break-word; }
+    a { color:#1784b8; font-weight:600; text-decoration:none; }
+  </style>`;
+
+const BRAND = `<div class="brand"><img src="${LOGO_URL}" alt="${APP_NAME}" /><span>${APP_NAME}</span></div>`;
+
+function renderInstallSuccessPage({ alreadyCompleted = false } = {}) {
+  const heading = alreadyCompleted ? 'Already connected' : 'Connected successfully';
+  const subline = alreadyCompleted
+    ? 'Your account is already linked — you’re all set.'
+    : `${APP_NAME} is now connected to your account.`;
+
+  return `<!DOCTYPE html><html><head>${PAGE_HEAD('Connected')}</head>
 <body>
-  <div class="container">
-    <div class="icon">✅</div>
-    <h1>${heading}</h1>
-    <p>${subline}</p>
+  <div class="card">
+    ${BRAND}
+    <div class="badge" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);">✅</div>
+    <h1 style="color:#059669;">${heading}</h1>
+    <p class="sub">${subline}</p>
 
-    <div class="access-box">
-      <h3>How to access the app</h3>
-      <div class="step">Open your sub-account dashboard</div>
-      <div class="step">Find the app in the left navigation menu</div>
-      <div class="step">Click to launch and start using it</div>
+    <div class="steps">
+      <h3>How to open the app</h3>
+      <div class="step"><span class="n">1</span>Open your sub-account dashboard</div>
+      <div class="step"><span class="n">2</span>Find <b>${APP_NAME}</b> in the left navigation menu</div>
+      <div class="step"><span class="n">3</span>Click to launch and start connecting Telegram</div>
     </div>
 
-    <div class="tip">
-      <p>Installation complete — you can safely close this window.</p>
-    </div>
-
-    <p class="close-note">You can close this window once you've reviewed the access steps above.</p>
+    <div class="note">Installation complete — you can safely close this window.</div>
+    <p class="close">You can close this window once you've reviewed the steps above.</p>
   </div>
-</body>
-</html>`;
+</body></html>`;
 }
 
 function renderInstallErrorPage(message) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Error - Vaultsuite</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    .container {
-      text-align: center;
-      background: #fff;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-      max-width: 500px;
-      margin: 20px;
-    }
-    .icon { font-size: 56px; margin-bottom: 16px; }
-    h1 { color: #EF4444; margin: 0 0 12px 0; }
-    p { color: #6B7280; margin: 10px 0; }
-    .error-detail {
-      background: #FEE2E2;
-      padding: 14px;
-      border-radius: 8px;
-      margin: 18px 0;
-      color: #991B1B;
-      font-size: 13px;
-      word-break: break-word;
-    }
-  </style>
-</head>
+  return `<!DOCTYPE html><html><head>${PAGE_HEAD('Install error')}</head>
 <body>
-  <div class="container">
-    <div class="icon">⚠️</div>
-    <h1>Connection Failed</h1>
-    <p>We encountered an error while completing the installation. Please try installing again.</p>
-    <div class="error-detail">${escapeHtml(message || 'Unknown error')}</div>
-    <p style="margin-top: 20px;">
-      Need help? Visit
-      <a href="https://telegram.vaultsuite.store/" target="_blank" rel="noopener noreferrer" style="color: #2563EB; font-weight: 600;">telegram.vaultsuite.store</a>
-      for setup guides and support.
-    </p>
+  <div class="card">
+    ${BRAND}
+    <div class="badge" style="background:linear-gradient(135deg,#fee2e2,#fecaca);">⚠️</div>
+    <h1 style="color:#dc2626;">Installation failed</h1>
+    <p class="sub">We hit an error completing the installation. Please try installing ${APP_NAME} again.</p>
+    <div class="err">${escapeHtml(message || 'Unknown error')}</div>
+    <p class="sub" style="margin:0;">Need help? Visit <a href="https://telegramv2.vaultsuite.store/" target="_blank" rel="noopener noreferrer">our help page</a>.</p>
   </div>
-</body>
-</html>`;
+</body></html>`;
 }
 
 function escapeHtml(str) {

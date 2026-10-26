@@ -6,7 +6,7 @@ import SubscriptionBanner from './components/SubscriptionBanner';
 import ConnectionsPanel from './components/ConnectionsPanel';
 import PlansPanel from './components/PlansPanel';
 import WorkflowsPanel from './components/WorkflowsPanel';
-import { Loader, Bolt, Spark, Alert, PaperPlane } from './components/Icons';
+import { Loader, Alert } from './components/Icons';
 
 const TABS = [
   { id: 'connections', label: 'Connections' },
@@ -24,8 +24,8 @@ function LoadingState() {
   return (
     <Shell>
       <div className="flex flex-col items-center justify-center min-h-[420px] gap-4 animate-fade-in">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2aa7e0] to-[#1784b8] flex items-center justify-center shadow-[var(--shadow-glow-tg)]">
-          <PaperPlane size={26} className="text-white -ml-0.5" />
+        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-[var(--shadow-glow-tg)] ring-1 ring-black/5">
+          <img src="/logo.jpg" alt="Telegram Connector" className="w-full h-full object-cover" />
         </div>
         <div className="flex items-center gap-2 text-slate-500">
           <Loader size={18} /> <span className="text-[14px] font-medium">Connecting…</span>
