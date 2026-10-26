@@ -5,6 +5,7 @@ const Bot = require('../schemas/bot.schema');
 const Phone = require('../schemas/phone.schema');
 const { MessageLog, MessageDirection, MessageStatus } = require('../schemas/message-log.schema');
 const ArchivedToken = require('../schemas/archived-token.schema');
+const OAuthToken = require('../schemas/oauth-token.schema');
 const CompanyLocation = require('../schemas/company-location.schema');
 const PhoneAuthSession = require('../schemas/phone-auth-session.schema');
 const ContactMapping = require('../schemas/contact-mapping.schema');
@@ -676,6 +677,9 @@ function createWebhooksRouter(
 
   router.post('/ghl-app-lifecycle', ghlSignatureGuard, async (req, res) => {
     const { type } = req.body;
+    console.log(
+      `[Webhook] lifecycle received: ${type || 'UNKNOWN'} | location=${req.body.locationId || '-'} company=${req.body.companyId || '-'} plan=${req.body.planId || req.body.newPlanId || '-'}`,
+    );
 
     switch (type) {
       case 'INSTALL':
@@ -746,35 +750,34 @@ async function handleAppUninstall(payload, connectionService, telegramService, c
   console.log(`App uninstalled for location: ${locationId}`);
 
   try {
-    const installation = await Installation.findOne({ locationId });
-
-    if (installation) {
-      // Archive tokens — only when still present (duplicate UNINSTALL webhooks are common).
-      if (installation.accessToken && installation.refreshToken) {
-        try {
-          await ArchivedToken.create({
-            companyId: installation.companyId,
-            locationId,
-            accessToken: installation.accessToken,
-            refreshToken: installation.refreshToken,
-            originalCreatedAt: installation.createdAt,
-            originalExpiresAt: installation.tokenExpiresAt,
-            deletedAt: new Date(),
-            deletionReason: 'app_uninstall',
-            uninstallWebhookData: payload,
-            autoDeleteAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-          });
-        } catch (archiveErr) {
-          console.warn(`Token archive failed for ${locationId} (continuing cleanup):`, archiveErr.message);
-        }
+    // Archive then deactivate the location's OAuth token (duplicate UNINSTALLs are common,
+    // so only archive when a token is still present).
+    const token = await OAuthToken.findOne({ locationId, tokenType: 'location' });
+    if (token && token.accessToken && token.refreshToken) {
+      try {
+        await ArchivedToken.create({
+          companyId: token.companyId,
+          locationId,
+          accessToken: token.accessToken,
+          refreshToken: token.refreshToken,
+          originalCreatedAt: token.createdAt,
+          originalExpiresAt: token.expiresAt,
+          deletedAt: new Date(),
+          deletionReason: 'app_uninstall',
+          uninstallWebhookData: payload,
+          autoDeleteAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+      } catch (archiveErr) {
+        console.warn(`Token archive failed for ${locationId} (continuing cleanup):`, archiveErr.message);
       }
-
-      // Soft-delete installation
-      await Installation.updateOne(
-        { locationId },
-        { status: 'uninstalled', uninstalledAt: new Date(), accessToken: '', refreshToken: '' },
-      );
     }
+    await OAuthToken.deleteOne({ locationId, tokenType: 'location' });
+
+    // Soft-delete the install record.
+    await Installation.updateOne(
+      { locationId },
+      { status: 'uninstalled', uninstalledAt: new Date() },
+    );
 
     // Disconnect + deactivate every phone for this location.
     const phones = await Phone.find({ locationId });

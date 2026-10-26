@@ -1,13 +1,14 @@
 const axios = require('axios');
 const Installation = require('../schemas/installation.schema');
-const CompanyToken = require('../schemas/company-token.schema');
+const OAuthToken = require('../schemas/oauth-token.schema');
 const CompanyLocation = require('../schemas/company-location.schema');
 const { formatError } = require('../utils/format-error');
 
 /**
- * OAuth + token lifecycle. Ported from v1, minus referral tracking (not in v2 scope).
- * Handles location-level and company-level installs, company→location token minting,
- * refresh with invalid_grant race handling, and the central getAccessToken accessor.
+ * OAuth + token lifecycle. Tokens live in the `oauth_tokens` collection (location + company
+ * types), separate from the `installations` install record — so status and tokens never
+ * desync. Handles location/company installs, lazy company→location minting, refresh with
+ * invalid_grant race handling, and the central getAccessToken accessor.
  */
 class AuthService {
   constructor(cryptoService) {
@@ -15,6 +16,8 @@ class AuthService {
     this.ghlApiBase = process.env.GHL_API_BASE;
     if (!this.ghlApiBase) throw new Error('GHL_API_BASE is required');
   }
+
+  // ── OAuth callback ───────────────────────────────────────────
 
   async handleOAuthCallback(code, state) {
     let tokenResponse;
@@ -38,16 +41,29 @@ class AuthService {
     const expiresAt = new Date(Date.now() + expires_in * 1000);
 
     if (locationId) {
+      // Store the location token.
+      await OAuthToken.findOneAndUpdate(
+        { locationId, tokenType: 'location' },
+        {
+          locationId,
+          companyId: companyId || '',
+          tokenType: 'location',
+          accessToken: this.crypto.encrypt(access_token),
+          refreshToken: this.crypto.encrypt(refresh_token),
+          expiresAt,
+          isActive: true,
+        },
+        { upsert: true, returnDocument: 'after' },
+      );
+      // Ensure the install record is active.
       await Installation.findOneAndUpdate(
         { locationId },
         {
           companyId: companyId || '',
           locationId,
-          accessToken: this.crypto.encrypt(access_token),
-          refreshToken: this.crypto.encrypt(refresh_token),
-          tokenExpiresAt: expiresAt,
           status: 'active',
           installedAt: new Date(),
+          $unset: { uninstalledAt: '' },
           $setOnInsert: { conversationProviderId: process.env.GHL_CONVERSATION_PROVIDER_ID || '' },
         },
         { upsert: true, returnDocument: 'after' },
@@ -57,13 +73,15 @@ class AuthService {
     }
 
     if (companyId) {
-      await CompanyToken.findOneAndUpdate(
-        { companyId },
+      // Store the company token.
+      await OAuthToken.findOneAndUpdate(
+        { companyId, tokenType: 'company' },
         {
           companyId,
+          tokenType: 'company',
           accessToken: this.crypto.encrypt(access_token),
           refreshToken: this.crypto.encrypt(refresh_token),
-          tokenExpiresAt: expiresAt,
+          expiresAt,
           isActive: true,
         },
         { upsert: true, returnDocument: 'after' },
@@ -79,6 +97,18 @@ class AuthService {
           { upsert: true, returnDocument: 'after' },
         );
         console.log(`Stored ${locationIds.length} locations for company: ${companyId}`);
+
+        // Self-heal: reactivate any of this company's locations left 'uninstalled', since a
+        // company-level (re)install carries no per-location token. Location tokens mint lazily.
+        if (locationIds.length) {
+          const reactivated = await Installation.updateMany(
+            { locationId: { $in: locationIds }, status: 'uninstalled' },
+            { $set: { status: 'active', companyId }, $unset: { uninstalledAt: '' } },
+          );
+          if (reactivated.modifiedCount) {
+            console.log(`Reactivated ${reactivated.modifiedCount} previously-uninstalled location(s) for company ${companyId}`);
+          }
+        }
       } catch (error) {
         console.error(`Failed to fetch company locations for ${companyId} | ${formatError(error)}`);
       }
@@ -90,17 +120,14 @@ class AuthService {
 
   async wasRecentlyInstalled(windowMs = 5 * 60 * 1000) {
     const since = new Date(Date.now() - windowMs);
-    const inst = await Installation.findOne({
-      status: 'active',
-      accessToken: { $exists: true, $nin: [null, ''] },
-      refreshToken: { $exists: true, $nin: [null, ''] },
-      installedAt: { $gte: since },
-    })
-      .sort({ installedAt: -1 })
-      .select('_id')
-      .lean();
-    return !!inst;
+    const tok = await OAuthToken.findOne({
+      isActive: true,
+      createdAt: { $gte: since },
+    }).select('_id').lean();
+    return !!tok;
   }
+
+  // ── Company locations ────────────────────────────────────────
 
   async _getCompanyLocations(accessToken, companyId) {
     const res = await axios.get(`${this.ghlApiBase}/locations/search`, {
@@ -110,8 +137,10 @@ class AuthService {
     return res.data.locations || [];
   }
 
+  // ── Company → location token minting ─────────────────────────
+
   async generateLocationToken(companyId, locationId) {
-    const companyToken = await CompanyToken.findOne({ companyId, isActive: true });
+    const companyToken = await OAuthToken.findActiveCompanyToken(companyId);
     if (!companyToken) {
       const err = new Error(`No active company token for company: ${companyId}`);
       err.statusCode = 401;
@@ -119,8 +148,7 @@ class AuthService {
     }
 
     let accessToken = this.crypto.decrypt(companyToken.accessToken);
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
-    if (companyToken.tokenExpiresAt < fiveMinutesFromNow) {
+    if (companyToken.needsRefresh()) {
       accessToken = await this._refreshCompanyToken(companyId);
     }
 
@@ -144,7 +172,7 @@ class AuthService {
   }
 
   async _refreshCompanyToken(companyId) {
-    const companyToken = await CompanyToken.findOne({ companyId });
+    const companyToken = await OAuthToken.findOne({ companyId, tokenType: 'company' });
     if (!companyToken) {
       const err = new Error(`No company token for: ${companyId}`);
       err.statusCode = 401;
@@ -165,32 +193,35 @@ class AuthService {
       );
     } catch (error) {
       if (error?.response?.data?.error === 'invalid_grant') {
-        await CompanyToken.updateOne({ companyId }, { isActive: false });
-        console.error(`[Auth] Company ${companyId} refresh token revoked — deactivated CompanyToken`);
+        await OAuthToken.updateOne({ companyId, tokenType: 'company' }, { isActive: false });
+        console.error(`[Auth] Company ${companyId} refresh token revoked — deactivated company token`);
       }
       throw error;
     }
 
     const { access_token, refresh_token: newRefreshToken, expires_in } = tokenResponse.data;
-    await CompanyToken.updateOne(
-      { companyId },
+    await OAuthToken.updateOne(
+      { companyId, tokenType: 'company' },
       {
         accessToken: this.crypto.encrypt(access_token),
         refreshToken: this.crypto.encrypt(newRefreshToken),
-        tokenExpiresAt: new Date(Date.now() + expires_in * 1000),
+        expiresAt: new Date(Date.now() + expires_in * 1000),
+        isActive: true,
       },
     );
     return access_token;
   }
 
+  // ── Location token refresh ───────────────────────────────────
+
   async refreshAccessToken(locationId) {
-    const installation = await Installation.findOne({ locationId });
-    if (!installation) {
-      const err = new Error(`No installation found for location: ${locationId}`);
+    const token = await OAuthToken.findActiveToken(locationId);
+    if (!token) {
+      const err = new Error(`No token found for location: ${locationId}`);
       err.statusCode = 401;
       throw err;
     }
-    const refreshToken = this.crypto.decrypt(installation.refreshToken);
+    const refreshToken = this.crypto.decrypt(token.refreshToken);
 
     try {
       const tokenResponse = await axios.post(
@@ -203,20 +234,20 @@ class AuthService {
         }),
       );
       const { access_token, refresh_token: newRefreshToken, expires_in } = tokenResponse.data;
-      await Installation.updateOne(
-        { locationId },
+      await OAuthToken.updateOne(
+        { locationId, tokenType: 'location' },
         {
           accessToken: this.crypto.encrypt(access_token),
           refreshToken: this.crypto.encrypt(newRefreshToken),
-          tokenExpiresAt: new Date(Date.now() + expires_in * 1000),
+          expiresAt: new Date(Date.now() + expires_in * 1000),
         },
       );
       return access_token;
     } catch (error) {
       if (error?.response?.data?.error === 'invalid_grant') {
         console.warn(`invalid_grant for ${locationId}, checking if refreshed by another process`);
-        const fresh = await Installation.findOne({ locationId });
-        if (fresh && fresh.accessToken !== installation.accessToken) {
+        const fresh = await OAuthToken.findActiveToken(locationId);
+        if (fresh && fresh.accessToken !== token.accessToken) {
           return this.crypto.decrypt(fresh.accessToken);
         }
       }
@@ -224,45 +255,55 @@ class AuthService {
     }
   }
 
-  async getAccessToken(locationId) {
-    const installation = await Installation.findOne({
-      locationId,
-      $or: [{ status: 'active' }, { status: { $exists: false } }],
-    });
+  // ── Central accessor ─────────────────────────────────────────
 
-    if (installation && installation.accessToken) {
-      const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
-      if (installation.tokenExpiresAt && installation.tokenExpiresAt < fiveMinutesFromNow) {
-        return this.refreshAccessToken(locationId);
-      }
-      return this.crypto.decrypt(installation.accessToken);
+  async getAccessToken(locationId) {
+    // 1) Location token if present.
+    const token = await OAuthToken.findActiveToken(locationId);
+    if (token) {
+      if (token.needsRefresh()) return this.refreshAccessToken(locationId);
+      return this.crypto.decrypt(token.accessToken);
     }
 
+    // 2) Mint a location token from the company token.
     const companyLocation = await CompanyLocation.findOne({ locationIds: locationId });
     if (companyLocation) {
       console.log(`No valid token for ${locationId}, generating from company ${companyLocation.companyId}`);
-      const locationToken = await this.generateLocationToken(companyLocation.companyId, locationId);
+      const minted = await this.generateLocationToken(companyLocation.companyId, locationId);
+      await OAuthToken.findOneAndUpdate(
+        { locationId, tokenType: 'location' },
+        {
+          locationId,
+          companyId: companyLocation.companyId,
+          tokenType: 'location',
+          accessToken: this.crypto.encrypt(minted.accessToken),
+          refreshToken: this.crypto.encrypt(minted.refreshToken),
+          expiresAt: new Date(Date.now() + minted.expiresIn * 1000),
+          isActive: true,
+        },
+        { upsert: true, returnDocument: 'after' },
+      );
+      // Make sure the install record exists/active too.
       await Installation.findOneAndUpdate(
         { locationId },
         {
           companyId: companyLocation.companyId,
           locationId,
-          accessToken: this.crypto.encrypt(locationToken.accessToken),
-          refreshToken: this.crypto.encrypt(locationToken.refreshToken),
-          tokenExpiresAt: new Date(Date.now() + locationToken.expiresIn * 1000),
           status: 'active',
-          installedAt: new Date(),
-          $setOnInsert: { conversationProviderId: process.env.GHL_CONVERSATION_PROVIDER_ID || '' },
+          $unset: { uninstalledAt: '' },
+          $setOnInsert: { installedAt: new Date(), conversationProviderId: process.env.GHL_CONVERSATION_PROVIDER_ID || '' },
         },
         { upsert: true, returnDocument: 'after' },
       );
-      return locationToken.accessToken;
+      return minted.accessToken;
     }
 
     const err = new Error(`No installation for location: ${locationId}`);
     err.statusCode = 401;
     throw err;
   }
+
+  // ── SSO ──────────────────────────────────────────────────────
 
   decryptSsoPayload(encryptedPayload) {
     try {

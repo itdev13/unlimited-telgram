@@ -11,11 +11,8 @@ const InstallationSchema = new mongoose.Schema(
     companyId: { type: String, index: true },
     locationId: { type: String, required: true, unique: true, index: true },
 
-    // GHL OAuth tokens (encrypted). May be minted lazily from the company token.
-    accessToken: { type: String },
-    refreshToken: { type: String },
-    tokenExpiresAt: { type: Date },
-
+    // Tokens live in the oauth_tokens collection (not here) so status/token lifecycles
+    // can't desync.
     status: { type: String, enum: ['active', 'uninstalled'], default: 'active', index: true },
     conversationProviderId: { type: String, default: '' },
 

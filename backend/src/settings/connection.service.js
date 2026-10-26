@@ -248,40 +248,26 @@ class ConnectionService {
 
   // ── Internal ─────────────────────────────────────────
 
-  // Ensure a skeleton Installation row exists so getAccessToken can mint lazily. Mirrors
-  // v1 settings.service behaviour (try to mint a location token from the company token).
+  // Ensure a skeleton Installation (install record) exists. Tokens are NOT stored here —
+  // getAccessToken mints a location token from the company token lazily on first use.
   async _ensureInstallation(locationId) {
     const existing = await Installation.findOne({ locationId });
     if (existing) return existing;
 
-    const setOnInsert = {
-      locationId,
-      status: 'active',
-      installedAt: new Date(),
-      conversationProviderId: process.env.GHL_CONVERSATION_PROVIDER_ID || '',
-    };
-
     const companyLocation = await CompanyLocation.findOne({ locationIds: locationId });
-    if (companyLocation) {
-      try {
-        const locationToken = await this.authService.generateLocationToken(
-          companyLocation.companyId,
-          locationId,
-        );
-        setOnInsert.companyId = companyLocation.companyId;
-        setOnInsert.accessToken = this.crypto.encrypt(locationToken.accessToken);
-        setOnInsert.refreshToken = this.crypto.encrypt(locationToken.refreshToken);
-        setOnInsert.tokenExpiresAt = new Date(Date.now() + locationToken.expiresIn * 1000);
-        console.log(`Location token generated for ${locationId}`);
-      } catch (error) {
-        console.warn(`Could not generate location token for ${locationId}, will be generated lazily: ${error.message}`);
-      }
-    }
-
     return Installation.findOneAndUpdate(
       { locationId },
-      { $setOnInsert: setOnInsert },
-      { upsert: true, returnDocument: 'after', new: true },
+      {
+        $set: { status: 'active' },
+        $unset: { uninstalledAt: '' },
+        $setOnInsert: {
+          locationId,
+          ...(companyLocation ? { companyId: companyLocation.companyId } : {}),
+          installedAt: new Date(),
+          conversationProviderId: process.env.GHL_CONVERSATION_PROVIDER_ID || '',
+        },
+      },
+      { upsert: true, returnDocument: 'after' },
     );
   }
 }
