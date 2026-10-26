@@ -154,7 +154,7 @@ async function bootstrap() {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  const port = process.env.PORT || 3002;
+  const port = process.env.PORT || 3015;
   app.listen(port, () => console.log(`Telegram Connector v2 running on port ${port}`));
 }
 
