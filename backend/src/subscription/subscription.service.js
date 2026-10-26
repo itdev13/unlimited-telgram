@@ -198,8 +198,10 @@ class SubscriptionService {
   // deep-link the user should be sent to when they click Choose/Switch plan.
   async listPlans(locationId) {
     const sub = await Subscription.findOne({ locationId }).lean();
-    const alreadySubscribed = !!sub && (sub.status === 'active' || sub.status === 'past_due');
-    const url = await this.buildUpgradeUrl(locationId, alreadySubscribed ? 'upgrade' : 'enrol');
+    // A user who has a plan context already (active, past_due, or trialing) should be sent
+    // to the upgrade/change-tier page. Only a truly fresh user (no plan) goes to enrol.
+    const hasPlanContext = !!sub && ['active', 'past_due', 'trialing'].includes(sub.status);
+    const url = await this.buildUpgradeUrl(locationId, hasPlanContext ? 'upgrade' : 'enrol');
 
     const entries = Object.entries(this.plans).map(([planId, p]) => {
       const plan = this.planForId(planId);
