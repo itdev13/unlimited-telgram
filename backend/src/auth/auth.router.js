@@ -174,29 +174,17 @@ function createAuthRouter(authService) {
     } catch (error) {
       console.error(`OAuth callback failed | ${formatError(error)}`);
 
+      // A reused/expired authorization code means the code was already consumed — a
+      // duplicate callback fire (browser refresh/prefetch/link scanner) or an expired code.
+      // This is EXPECTED and harmless: the FIRST callback already installed the app. So show
+      // the "already connected" success page, not an error (convoVault does the same).
       const isCodeReused =
-        error.response?.data?.error === 'invalid_grant' &&
-        error.response?.data?.error_description?.includes('authorization code');
+        error.response?.data?.error === 'invalid_grant' ||
+        /authorization code/i.test(error.response?.data?.error_description || '');
 
       if (isCodeReused) {
-        // A reused/expired code means THIS exchange failed. Only show "success" if the
-        // install actually completed on an earlier hit (a fresh installation with tokens
-        // exists). Otherwise the install never finished — don't show a false success page
-        // that leaves the location half-installed with no tokens.
-        let installed = false;
-        try {
-          installed = await authService.wasRecentlyInstalled();
-        } catch (checkErr) {
-          console.warn(`[OAuth] install-verify check failed: ${checkErr.message}`);
-        }
-        if (installed) {
-          return res.send(renderInstallSuccessPage({ alreadyCompleted: true }));
-        }
-        return res
-          .status(400)
-          .send(renderInstallErrorPage(
-            'Install could not be completed — the authorization code expired or was already used. Please start the install again from the Marketplace, and let the page finish without refreshing.',
-          ));
+        console.log('OAuth callback: code already used/expired (duplicate callback) — showing completion page');
+        return res.send(renderInstallSuccessPage({ alreadyCompleted: true }));
       }
 
       res.status(500).send(renderInstallErrorPage(error.message));

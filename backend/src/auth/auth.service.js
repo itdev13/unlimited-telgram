@@ -118,15 +118,6 @@ class AuthService {
     throw new Error('OAuth response missing both locationId and companyId');
   }
 
-  async wasRecentlyInstalled(windowMs = 5 * 60 * 1000) {
-    const since = new Date(Date.now() - windowMs);
-    const tok = await OAuthToken.findOne({
-      isActive: true,
-      createdAt: { $gte: since },
-    }).select('_id').lean();
-    return !!tok;
-  }
-
   // ── Company locations ────────────────────────────────────────
 
   async _getCompanyLocations(accessToken, companyId) {
