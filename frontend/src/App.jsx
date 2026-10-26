@@ -130,7 +130,7 @@ export default function App() {
           )}
           {tab === 'workflows' && <WorkflowsPanel />}
           {tab === 'plans' && <PlansPanel plans={plans} sub={sub} />}
-          {tab === 'support' && <SupportPanel />}
+          {tab === 'support' && <SupportPanel user={user} ssoPayload={ssoPayload} />}
         </div>
       </div>
     </Shell>

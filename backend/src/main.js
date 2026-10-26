@@ -51,6 +51,7 @@ const { createSettingsRouter } = require('./settings/settings.router');
 const { createWebhooksRouter } = require('./webhooks/webhooks.router');
 const { createWorkflowsRouter } = require('./workflows/workflows.router');
 const { createMediaRouter, cleanupExpiredMedia } = require('./media/media.router');
+const { createSupportRouter } = require('./support/support.router');
 
 // Middleware
 const { createSsoMiddleware } = require('./auth/guards/sso.middleware');
@@ -150,6 +151,7 @@ async function bootstrap() {
   );
   app.use('/workflows', createWorkflowsRouter(workflowsService, subscriptionService));
   app.use('/media', createMediaRouter());
+  app.use('/support', createSupportRouter(ssoMiddleware));
 
   // Clean up expired media files on startup and every 30 minutes.
   cleanupExpiredMedia();
