@@ -79,11 +79,6 @@ function renderInstallSuccessPage({ alreadyCompleted = false } = {}) {
     <div class="note">Installation complete — you can safely close this window.</div>
     <p class="close">You can close this window once you've reviewed the steps above.</p>
   </div>
-  <script>
-    // Strip the one-time ?code from the URL so a refresh can't replay it (which GHL would
-    // reject). Leaves a clean ?installed=1 that re-renders this same success page.
-    try { history.replaceState(null, '', location.pathname + '?installed=1'); } catch (e) {}
-  </script>
 </body></html>`;
 }
 
@@ -166,17 +161,15 @@ function createAuthRouter(authService) {
 
   // GET /auth/callback
   router.get('/callback', async (req, res) => {
-    // Refresh-after-success: the code was already stripped from the URL by the success
-    // page's history.replaceState, so just re-show success (no spent-code replay → no
-    // false "failed").
-    if (!req.query.code && req.query.installed) {
+    // No code at all → nothing to exchange (e.g. the user refreshed a code-less URL, or
+    // landed here directly). Show the success page rather than an error, since by this
+    // point the install has almost always already completed.
+    if (!req.query.code) {
       return res.send(renderInstallSuccessPage());
     }
 
     try {
       await authService.handleOAuthCallback(req.query.code, req.query.state);
-      // Fresh install → show the success page. It strips the one-time code from the URL
-      // client-side (replaceState to ?installed=1) so a refresh can't replay it.
       return res.send(renderInstallSuccessPage());
     } catch (error) {
       console.error(`OAuth callback failed | ${formatError(error)}`);
