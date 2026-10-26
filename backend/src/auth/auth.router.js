@@ -43,8 +43,10 @@ const PAGE_HEAD = (title) => `<meta charset="utf-8" />
       border-radius: 14px; padding: 18px 20px; margin: 0 0 18px;
     }
     .steps h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: #1784b8; text-transform: uppercase; letter-spacing: .04em; }
-    .step { display:flex; gap:10px; align-items:flex-start; color:#334155; font-size:14px; margin: 9px 0; }
-    .step .n { flex: none; width: 20px; height: 20px; border-radius: 50%; background:#229ED9; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+    .step { display:flex; gap:11px; align-items:flex-start; color:#334155; font-size:14px; margin: 11px 0; }
+    .step .n { flex: none; width: 21px; height: 21px; border-radius: 50%; background:#229ED9; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+    .step .t { flex: 1; line-height: 1.5; }
+    .step .t b { font-weight: 700; color: #0f2a3a; }
     .note { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:13px; font-weight:600; border-radius:12px; padding:12px 14px; }
     .close { color:#94a3b8; font-size:12.5px; margin-top: 18px; }
     .err { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; font-size:13px; border-radius:12px; padding:12px 14px; margin:0 0 16px; word-break:break-word; }
@@ -69,14 +71,19 @@ function renderInstallSuccessPage({ alreadyCompleted = false } = {}) {
 
     <div class="steps">
       <h3>How to open the app</h3>
-      <div class="step"><span class="n">1</span>Open your sub-account dashboard</div>
-      <div class="step"><span class="n">2</span>Find <b>${APP_NAME}</b> in the left navigation menu</div>
-      <div class="step"><span class="n">3</span>Click to launch and start connecting Telegram</div>
+      <div class="step"><span class="n">1</span><span class="t">Open your sub-account dashboard</span></div>
+      <div class="step"><span class="n">2</span><span class="t">Find <b>${APP_NAME}</b> in the left navigation menu</span></div>
+      <div class="step"><span class="n">3</span><span class="t">Click to launch and start connecting Telegram</span></div>
     </div>
 
     <div class="note">Installation complete — you can safely close this window.</div>
     <p class="close">You can close this window once you've reviewed the steps above.</p>
   </div>
+  <script>
+    // Strip the one-time ?code from the URL so a refresh can't replay it (which GHL would
+    // reject). Leaves a clean ?installed=1 that re-renders this same success page.
+    try { history.replaceState(null, '', location.pathname + '?installed=1'); } catch (e) {}
+  </script>
 </body></html>`;
 }
 
@@ -159,16 +166,18 @@ function createAuthRouter(authService) {
 
   // GET /auth/callback
   router.get('/callback', async (req, res) => {
-    // Refresh-after-success: the code is already stripped from the URL, so just re-show
-    // the success page (no second exchange of a spent code → no false "failed").
+    // Refresh-after-success: the code was already stripped from the URL by the success
+    // page's history.replaceState, so just re-show success (no spent-code replay → no
+    // false "failed").
     if (!req.query.code && req.query.installed) {
-      return res.send(renderInstallSuccessPage({ alreadyCompleted: true }));
+      return res.send(renderInstallSuccessPage());
     }
 
     try {
       await authService.handleOAuthCallback(req.query.code, req.query.state);
-      // Redirect to a code-free URL so a page refresh can't replay the one-time code.
-      return res.redirect('/auth/callback?installed=1');
+      // Fresh install → show the success page. It strips the one-time code from the URL
+      // client-side (replaceState to ?installed=1) so a refresh can't replay it.
+      return res.send(renderInstallSuccessPage());
     } catch (error) {
       console.error(`OAuth callback failed | ${formatError(error)}`);
 
