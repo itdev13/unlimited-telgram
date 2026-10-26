@@ -62,7 +62,7 @@ export default function PlansPanel({ plans = [], sub }) {
                   <Feat featured={featured} icon={<Phone size={15} />}>Bots &amp; phone numbers</Feat>
                   <Feat featured={featured} icon={<Bolt size={15} />}>Unlimited messages &amp; actions</Feat>
                   <Feat featured={featured} icon={<Check size={15} />}>Two-way sync, media &amp; workflows</Feat>
-                  <Feat featured={featured} icon={<Life size={15} />}>Priority support via WhatsApp &amp; Telegram</Feat>
+                  <Feat featured={featured} icon={<Life size={15} />}>Priority WhatsApp support</Feat>
                 </div>
 
                 <div className="mt-5 pt-4 border-t border-dashed border-current/10">
