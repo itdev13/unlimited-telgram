@@ -56,10 +56,10 @@ export default function PlansPanel({ plans = [], sub }) {
                 </div>
 
                 <div className={`mt-4 space-y-2.5 text-[13px] ${featured ? 'text-white/85' : 'text-slate-600'}`}>
-                  <Feat featured={featured} icon={<Bot size={15} />}>{fmtLimit(p.botLimit)} {p.botLimit === 1 ? 'bot' : 'bots'}</Feat>
-                  <Feat featured={featured} icon={<Phone size={15} />}>{fmtLimit(p.phoneLimit)} phone {p.phoneLimit === 1 ? 'account' : 'accounts'}</Feat>
-                  <Feat featured={featured} icon={<Bolt size={15} />}>Unlimited workflow actions</Feat>
-                  <Feat featured={featured} icon={<Check size={15} />}>Two-way sync & media</Feat>
+                  <Feat featured={featured} icon={<Bot size={15} />}>{fmtLimit(p.connectionLimit)} Telegram account{p.connectionLimit === 1 ? '' : 's'}</Feat>
+                  <Feat featured={featured} icon={<Phone size={15} />}>Bots &amp; phone numbers</Feat>
+                  <Feat featured={featured} icon={<Bolt size={15} />}>Unlimited messages &amp; actions</Feat>
+                  <Feat featured={featured} icon={<Check size={15} />}>Two-way sync, media &amp; workflows</Feat>
                 </div>
 
                 <div className="mt-5 pt-4 border-t border-dashed border-current/10">

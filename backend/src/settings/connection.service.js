@@ -71,35 +71,34 @@ class ConnectionService {
     return limits;
   }
 
-  async _enforceBotLimit(locationId) {
-    // Must be entitled (active/trialing) AND under the plan's bot limit.
+  // Plans sell a COMBINED "Telegram Accounts" count (bots + phones together). Enforce the
+  // total against connectionLimit, regardless of which type is being added.
+  async _enforceConnectionLimit(locationId) {
     await this.subscription.ensureEntitled(locationId);
     const limits = await this._requireLimits(locationId);
-    const activeCount = await Bot.countDocuments({ locationId, isActive: true });
-    if (activeCount >= limits.botLimit) {
+    const limit = limits.connectionLimit;
+    const [bots, phones] = await Promise.all([
+      Bot.countDocuments({ locationId, isActive: true }),
+      Phone.countDocuments({ locationId, isActive: true }),
+    ]);
+    const used = bots + phones;
+    if (used >= limit) {
       const err = new Error(
-        `Your ${limits.planName || 'current'} plan allows ${limits.botLimit} bot${limits.botLimit === 1 ? '' : 's'}. Upgrade to connect more.`,
+        `Your ${limits.planName || 'current'} plan includes ${limit} Telegram account${limit === 1 ? '' : 's'}. Upgrade to connect more.`,
       );
       err.statusCode = 402;
-      err.code = 'BOT_LIMIT';
+      err.code = 'CONNECTION_LIMIT';
       throw err;
     }
     return limits;
   }
 
+  async _enforceBotLimit(locationId) {
+    return this._enforceConnectionLimit(locationId);
+  }
+
   async _enforcePhoneLimit(locationId) {
-    await this.subscription.ensureEntitled(locationId);
-    const limits = await this._requireLimits(locationId);
-    const activeCount = await Phone.countDocuments({ locationId, isActive: true });
-    if (activeCount >= limits.phoneLimit) {
-      const err = new Error(
-        `Your ${limits.planName || 'current'} plan allows ${limits.phoneLimit} phone${limits.phoneLimit === 1 ? '' : 's'}. Upgrade to connect more.`,
-      );
-      err.statusCode = 402;
-      err.code = 'PHONE_LIMIT';
-      throw err;
-    }
-    return limits;
+    return this._enforceConnectionLimit(locationId);
   }
 
   // ── Bots ─────────────────────────────────────────────

@@ -23,10 +23,12 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
 
   const bots = connections?.bots || [];
   const phones = connections?.phones || [];
-  const botLimit = plan?.botLimit ?? 0;
-  const phoneLimit = plan?.phoneLimit ?? 0;
-  const canAddBot = entitled && bots.length < botLimit;
-  const canAddPhone = entitled && phones.length < phoneLimit;
+  // Plans sell a COMBINED "Telegram Accounts" pool (bots + phones together).
+  const limit = plan?.connectionLimit ?? 0;
+  const used = bots.length + phones.length;
+  const canAddMore = entitled && used < limit;
+  const canAddBot = canAddMore;
+  const canAddPhone = canAddMore;
 
   const doDisconnect = async () => {
     setBusy(true);
@@ -80,9 +82,9 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
             desc="Connect a Telegram bot via BotFather token"
             canAdd={canAddBot}
             onAdd={() => setBotOpen(true)}
-            used={bots.length}
-            limit={botLimit}
-            label="bots"
+            used={used}
+            limit={limit}
+            label="accounts"
           />
         </div>
       </section>
@@ -100,9 +102,9 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
             desc="Link a Telegram account by phone number"
             canAdd={canAddPhone}
             onAdd={() => setPhoneOpen(true)}
-            used={phones.length}
-            limit={phoneLimit}
-            label="phones"
+            used={used}
+            limit={limit}
+            label="accounts"
           />
         </div>
       </section>

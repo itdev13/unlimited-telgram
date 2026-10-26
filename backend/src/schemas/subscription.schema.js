@@ -20,8 +20,8 @@ const SubscriptionSchema = new mongoose.Schema(
     planId: { type: String },
     planName: { type: String },
     priceUsd: { type: Number },
-    botLimit: { type: Number, default: 0 },
-    phoneLimit: { type: Number, default: 0 },
+    // Combined bots + phones ("Telegram Accounts") the plan allows.
+    connectionLimit: { type: Number, default: 0 },
 
     status: {
       type: String,

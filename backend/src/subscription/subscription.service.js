@@ -29,25 +29,25 @@ class SubscriptionService {
 
   _defaultPlan() {
     return {
-      name: process.env.PLAN_NAME || 'Standard',
+      name: process.env.PLAN_NAME || 'Basic',
       priceUsd: Number(process.env.PLAN_PRICE_USD) || 0,
-      botLimit: Number(process.env.PLAN_BOT_LIMIT) || 2,
-      phoneLimit: Number(process.env.PLAN_PHONE_LIMIT) || 1,
+      // Combined limit: bots + phones together ("Telegram Accounts").
+      connectionLimit: Number(process.env.PLAN_CONNECTION_LIMIT) || 1,
     };
   }
 
-  // Resolve a GHL planId to our tier definition (with limits).
+  // Resolve a GHL planId to our tier definition (with the combined connection limit).
+  // Accepts connectionLimit, or falls back to max(botLimit, phoneLimit) for older configs.
   planForId(planId) {
-    if (planId && this.plans[planId]) return { planId, ...this.plans[planId] };
-    return { planId: planId || null, ...this._defaultPlan() };
+    const raw = planId && this.plans[planId] ? { planId, ...this.plans[planId] } : { planId: planId || null, ...this._defaultPlan() };
+    if (raw.connectionLimit == null) {
+      raw.connectionLimit = Math.max(Number(raw.botLimit) || 0, Number(raw.phoneLimit) || 0) || 1;
+    }
+    return raw;
   }
 
-  botLimitFor(plan) {
-    return plan?.botLimit ?? 0;
-  }
-
-  phoneLimitFor(plan) {
-    return plan?.phoneLimit ?? 0;
+  connectionLimitFor(plan) {
+    return plan?.connectionLimit ?? 0;
   }
 
   /**
@@ -64,8 +64,7 @@ class SubscriptionService {
       planId: plan.planId,
       planName: plan.name,
       priceUsd: plan.priceUsd,
-      botLimit: plan.botLimit,
-      phoneLimit: plan.phoneLimit,
+      connectionLimit: plan.connectionLimit,
       rawWebhookData: raw,
     };
 
@@ -144,17 +143,17 @@ class SubscriptionService {
       isTrial,
       trialDaysLeft,
       plan: sub
-        ? { name: sub.planName, priceUsd: sub.priceUsd, botLimit: sub.botLimit, phoneLimit: sub.phoneLimit }
+        ? { name: sub.planName, priceUsd: sub.priceUsd, connectionLimit: sub.connectionLimit }
         : null,
       currentPeriodEnd: sub?.currentPeriodEnd || null,
     };
   }
 
-  // Returns the per-plan limits for enforcement, or null if no subscription.
+  // Returns the plan's combined connection limit for enforcement, or null if no subscription.
   async planLimits(locationId) {
     const sub = await Subscription.findOne({ locationId }).lean();
     if (!sub) return null;
-    return { botLimit: sub.botLimit, phoneLimit: sub.phoneLimit, planName: sub.planName };
+    return { connectionLimit: sub.connectionLimit, planName: sub.planName };
   }
 
   // Throws 402 when a subscription is required but the location isn't entitled.
@@ -172,14 +171,16 @@ class SubscriptionService {
   // List all plans (for the Plans page), flagging the current one.
   async listPlans(locationId) {
     const sub = await Subscription.findOne({ locationId }).lean();
-    const entries = Object.entries(this.plans).map(([planId, p]) => ({
-      planId,
-      name: p.name,
-      priceUsd: p.priceUsd,
-      botLimit: p.botLimit,
-      phoneLimit: p.phoneLimit,
-      isCurrent: sub?.planId === planId,
-    }));
+    const entries = Object.entries(this.plans).map(([planId, p]) => {
+      const plan = this.planForId(planId);
+      return {
+        planId,
+        name: plan.name,
+        priceUsd: plan.priceUsd,
+        connectionLimit: plan.connectionLimit,
+        isCurrent: sub?.planId === planId,
+      };
+    });
     entries.sort((a, b) => (a.priceUsd || 0) - (b.priceUsd || 0));
     return entries;
   }
