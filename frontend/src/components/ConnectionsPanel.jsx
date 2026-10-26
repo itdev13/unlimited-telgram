@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { api } from '../api';
 import ConnectionCard from './ConnectionCard';
-import BotSetupModal from './BotSetupModal';
-import PhoneSetupModal from './PhoneSetupModal';
+import BotConnectWizard from './BotConnectWizard';
+import PhoneConnectWizard from './PhoneConnectWizard';
 import { Modal, Card, Button, SectionTitle, Badge } from './ui';
 import { Bot, Phone, Plus, Lock, Trash } from './Icons';
 
@@ -16,8 +16,7 @@ function LimitHint({ used, limit, label }) {
 }
 
 export default function ConnectionsPanel({ locationId, ssoPayload, connections, plan, entitled, onChanged, onViewPlans }) {
-  const [botOpen, setBotOpen] = useState(false);
-  const [phoneOpen, setPhoneOpen] = useState(false);
+  const [wizard, setWizard] = useState(null); // null | 'bot' | 'phone'
   const [disconnect, setDisconnect] = useState(null); // { type, conn }
   const [busy, setBusy] = useState(false);
 
@@ -67,6 +66,28 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
     </button>
   );
 
+  // Inline wizards replace the whole connections view (no modal).
+  if (wizard === 'bot') {
+    return (
+      <BotConnectWizard
+        locationId={locationId}
+        ssoPayload={ssoPayload}
+        onBack={() => setWizard(null)}
+        onConnected={() => { setWizard(null); onChanged?.(); }}
+      />
+    );
+  }
+  if (wizard === 'phone') {
+    return (
+      <PhoneConnectWizard
+        locationId={locationId}
+        ssoPayload={ssoPayload}
+        onBack={() => setWizard(null)}
+        onConnected={() => { setWizard(null); onChanged?.(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Bots */}
@@ -81,7 +102,7 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
             title="Add a bot"
             desc="Connect a Telegram bot via BotFather token"
             canAdd={canAddBot}
-            onAdd={() => setBotOpen(true)}
+            onAdd={() => setWizard('bot')}
             used={used}
             limit={limit}
             label="accounts"
@@ -101,7 +122,7 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
             title="Add a phone"
             desc="Link a Telegram account by phone number"
             canAdd={canAddPhone}
-            onAdd={() => setPhoneOpen(true)}
+            onAdd={() => setWizard('phone')}
             used={used}
             limit={limit}
             label="accounts"
@@ -109,22 +130,7 @@ export default function ConnectionsPanel({ locationId, ssoPayload, connections, 
         </div>
       </section>
 
-      {/* Modals */}
-      <BotSetupModal
-        open={botOpen}
-        onClose={() => setBotOpen(false)}
-        locationId={locationId}
-        ssoPayload={ssoPayload}
-        onConnected={() => { setBotOpen(false); onChanged?.(); }}
-      />
-      <PhoneSetupModal
-        open={phoneOpen}
-        onClose={() => setPhoneOpen(false)}
-        locationId={locationId}
-        ssoPayload={ssoPayload}
-        onConnected={() => { setPhoneOpen(false); onChanged?.(); }}
-      />
-
+      {/* Disconnect confirmation (stays a small modal) */}
       <Modal open={!!disconnect} onClose={() => setDisconnect(null)} maxWidth="max-w-sm">
         <Card className="p-5">
           <div className="w-11 h-11 rounded-xl bg-red-50 text-red-500 flex items-center justify-center mb-3">
