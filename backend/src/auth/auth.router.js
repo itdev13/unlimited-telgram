@@ -159,9 +159,16 @@ function createAuthRouter(authService) {
 
   // GET /auth/callback
   router.get('/callback', async (req, res) => {
+    // Refresh-after-success: the code is already stripped from the URL, so just re-show
+    // the success page (no second exchange of a spent code → no false "failed").
+    if (!req.query.code && req.query.installed) {
+      return res.send(renderInstallSuccessPage({ alreadyCompleted: true }));
+    }
+
     try {
       await authService.handleOAuthCallback(req.query.code, req.query.state);
-      res.send(renderInstallSuccessPage());
+      // Redirect to a code-free URL so a page refresh can't replay the one-time code.
+      return res.redirect('/auth/callback?installed=1');
     } catch (error) {
       console.error(`OAuth callback failed | ${formatError(error)}`);
 
