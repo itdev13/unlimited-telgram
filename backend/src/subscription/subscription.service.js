@@ -168,9 +168,39 @@ class SubscriptionService {
     }
   }
 
-  // List all plans (for the Plans page), flagging the current one.
+  /**
+   * Build the GHL deep-link the "Choose plan" / "Switch plan" button points at. Mirrors
+   * HelmDesk: 'enrol' (no plan yet → first subscribe) opens the version enrol page; 'upgrade'
+   * (already subscribed → change tier) opens the upgrade/downgrade picker. Uses the agency's
+   * white-label domain and app/version captured at install.
+   */
+  async buildUpgradeUrl(locationId, mode = 'enrol') {
+    if (process.env.MARKETPLACE_UPGRADE_URL) return process.env.MARKETPLACE_UPGRADE_URL;
+    try {
+      const Installation = require('../schemas/installation.schema');
+      const inst = await Installation.findOne({ locationId, status: 'active' }).sort({ updatedAt: -1 }).lean();
+      const appId = inst?.appId || process.env.GHL_APP_ID;
+      if (!appId || !locationId) return '';
+
+      const versionId = inst?.versionId || process.env.GHL_APP_VERSION_ID || '';
+      const rawDomain = inst?.whitelabelDomain || process.env.GHL_DEFAULT_APP_DOMAIN || 'app.gohighlevel.com';
+      const host = String(rawDomain).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      const base = `https://${host}/v2/location/${locationId}/integration/${appId}`;
+
+      if (mode === 'upgrade') return `${base}/upgrade-plans?app_from=installedApps`;
+      return `${versionId ? `${base}/versions/${versionId}` : base}?view=subAccount`;
+    } catch {
+      return '';
+    }
+  }
+
+  // List all plans (for the Plans page), flagging the current one and including the GHL
+  // deep-link the user should be sent to when they click Choose/Switch plan.
   async listPlans(locationId) {
     const sub = await Subscription.findOne({ locationId }).lean();
+    const alreadySubscribed = !!sub && (sub.status === 'active' || sub.status === 'past_due');
+    const url = await this.buildUpgradeUrl(locationId, alreadySubscribed ? 'upgrade' : 'enrol');
+
     const entries = Object.entries(this.plans).map(([planId, p]) => {
       const plan = this.planForId(planId);
       return {
@@ -179,6 +209,7 @@ class SubscriptionService {
         priceUsd: plan.priceUsd,
         connectionLimit: plan.connectionLimit,
         isCurrent: sub?.planId === planId,
+        url,
       };
     });
     entries.sort((a, b) => (a.priceUsd || 0) - (b.priceUsd || 0));

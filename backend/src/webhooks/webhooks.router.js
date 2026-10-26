@@ -700,6 +700,9 @@ function createWebhooksRouter(
 
 async function handleAppInstall(payload, subscriptionService, res) {
   const { locationId, companyId, appId, planId } = payload;
+  // For building the upgrade/enrol deep-link later (white-label aware).
+  const versionId = payload.versionId || payload.appVersionId;
+  const whitelabelDomain = payload.whitelabelDetails?.domain || payload.whitelabel?.domain;
   console.log(`App installed for location: ${locationId}, company: ${companyId}`);
 
   if (locationId && companyId) {
@@ -715,6 +718,8 @@ async function handleAppInstall(payload, subscriptionService, res) {
         companyId,
         status: 'active',
         ...(appId ? { appId } : {}),
+        ...(versionId ? { versionId } : {}),
+        ...(whitelabelDomain ? { whitelabelDomain } : {}),
         $setOnInsert: {
           installedAt: new Date(),
           conversationProviderId: process.env.GHL_CONVERSATION_PROVIDER_ID || '',

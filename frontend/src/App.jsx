@@ -6,12 +6,14 @@ import SubscriptionBanner from './components/SubscriptionBanner';
 import ConnectionsPanel from './components/ConnectionsPanel';
 import PlansPanel from './components/PlansPanel';
 import WorkflowsPanel from './components/WorkflowsPanel';
+import SupportPanel from './components/SupportPanel';
 import { Loader, Alert } from './components/Icons';
 
 const TABS = [
   { id: 'connections', label: 'Connections' },
   { id: 'workflows', label: 'Automations' },
   { id: 'plans', label: 'Plans' },
+  { id: 'support', label: 'Support' },
 ];
 
 function Shell({ children }) {
@@ -128,6 +130,7 @@ export default function App() {
           )}
           {tab === 'workflows' && <WorkflowsPanel />}
           {tab === 'plans' && <PlansPanel plans={plans} sub={sub} />}
+          {tab === 'support' && <SupportPanel />}
         </div>
       </div>
     </Shell>
