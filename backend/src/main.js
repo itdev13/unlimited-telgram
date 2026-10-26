@@ -136,6 +136,14 @@ async function bootstrap() {
   app.use('/subscription', createSubscriptionRouter(subscriptionService));
   app.use('/connections', createConnectionsRouter(connectionService, gramJsService, ssoMiddleware));
   app.use('/settings', createSettingsRouter(connectionService, subscriptionService, ssoMiddleware));
+
+  // Log EVERY incoming webhook request at the edge (before the router/signature guard), so
+  // it's obvious in the logs whether GHL is actually reaching us and on which path.
+  app.use('/webhooks', (req, res, next) => {
+    console.log(`📥 [Webhook] ${req.method} ${req.originalUrl} | type=${req.body?.type || '-'}`);
+    next();
+  });
+
   app.use(
     '/webhooks',
     webhookLimiter,
