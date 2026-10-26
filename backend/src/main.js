@@ -1,4 +1,29 @@
-require('dotenv').config();
+// Load .env from the backend root (next to package.json), independent of the process
+// cwd — pm2 often starts with a different cwd, which would otherwise leave env vars unset.
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
+// Prefix every console line with an IST (UTC+5:30) timestamp, so pm2 logs are
+// time-stamped in local time without touching individual log calls. Override the zone
+// with LOG_TZ (IANA name, e.g. "UTC"); disable entirely with LOG_TIMESTAMPS=false.
+if (process.env.LOG_TIMESTAMPS !== 'false') {
+  const tz = process.env.LOG_TZ || 'Asia/Kolkata';
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  // "26/10/2026, 16:51:11" → "2026-10-26 16:51:11 IST"
+  const stamp = () => {
+    const p = Object.fromEntries(fmt.formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} IST`;
+  };
+  for (const level of ['log', 'warn', 'error', 'info']) {
+    const original = console[level].bind(console);
+    console[level] = (...args) => original(`[${stamp()}]`, ...args);
+  }
+}
 
 const express = require('express');
 const cors = require('cors');
