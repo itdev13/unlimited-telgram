@@ -92,7 +92,7 @@ export default function PlansPanel({ plans = [], sub }) {
       )}
 
       <p className="text-center text-[11.5px] text-slate-400">
-        Manage billing from the GoHighLevel Marketplace. Plan changes apply on your next cycle.
+        Manage billing from the App Marketplace. Plan changes apply on your next cycle.
       </p>
     </div>
   );

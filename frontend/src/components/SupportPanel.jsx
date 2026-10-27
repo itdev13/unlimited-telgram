@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import { API_BASE } from '../api';
 import { Card, Button, Input } from './ui';
-import { Life, Clock, ArrowRight, Check, Alert, Plus, Trash } from './Icons';
+import { Life, Clock, ArrowRight, Check, Alert, Plus, Trash, Copy } from './Icons';
 
 const CALENDAR_URL = 'https://calendar.app.google/crZcAddPma9veEK48';
+const WHATSAPP_URL = 'https://chat.whatsapp.com/Go5WODTAXAf2ZeCfpBI6bG?s=sw&p=a&mlu=4&ilr=4';
+const WHATSAPP_COMMUNITY = 'Telegram Unlimited Community'; // community/group name shown in the banner
 const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 export default function SupportPanel({ user, ssoPayload }) {
@@ -13,7 +15,18 @@ export default function SupportPanel({ user, ssoPayload }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [emailErr, setEmailErr] = useState('');
+  const [copied, setCopied] = useState(false);
   const fileRef = useRef(null);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(WHATSAPP_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // clipboard blocked — ignore
+    }
+  };
 
   const onEmail = (e) => {
     const email = e.target.value;
@@ -81,6 +94,40 @@ export default function SupportPanel({ user, ssoPayload }) {
         <div>
           <h2 className="text-[18px] font-extrabold text-slate-900 tracking-tight">Support</h2>
           <p className="text-[13px] text-slate-500">Need help? Send us a message and we'll get back to you.</p>
+        </div>
+      </div>
+
+      {/* Priority WhatsApp support — community + join + copy */}
+      <div className="rounded-2xl p-4 bg-gradient-to-r from-[#eafaf0] to-[#f4fcf7] border border-[#c7ecd4] flex items-center gap-3.5 flex-wrap">
+        <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center text-emerald-600 ring-1 ring-emerald-100 shrink-0">
+          <Life size={22} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[14px] font-bold text-slate-900">Priority WhatsApp support</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-white ring-1 ring-emerald-200 rounded-full px-2 py-0.5">
+              {WHATSAPP_COMMUNITY}
+            </span>
+          </div>
+          <div className="text-[12.5px] text-slate-500 mt-0.5">Included on every plan — join our community for instant help.</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={copyLink}
+            title="Copy invite link"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white text-slate-600 text-[13px] font-medium ring-1 ring-slate-200 hover:ring-slate-300 hover:text-slate-800 transition-all"
+          >
+            {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
+            {copied ? 'Copied' : 'Copy link'}
+          </button>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#25D366] text-white text-[13px] font-semibold hover:brightness-105 transition-all shadow-[0_6px_18px_-6px_rgba(37,211,102,0.6)]"
+          >
+            Join now
+          </a>
         </div>
       </div>
 
@@ -173,16 +220,6 @@ export default function SupportPanel({ user, ssoPayload }) {
           <a href="mailto:binduchowdary856@gmail.com" className="font-semibold text-[#1784b8] hover:text-[#0f6a97]">
             binduchowdary856@gmail.com
           </a>
-        </p>
-      </div>
-
-      {/* Priority support note */}
-      <div className="rounded-2xl p-4 bg-gradient-to-r from-[#eaf7fe] to-[#f5fbff] border border-[#cdebfa] flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-[#1784b8] ring-1 ring-[#cdebfa] shrink-0">
-          <Life size={18} />
-        </div>
-        <p className="text-[13px] text-slate-600">
-          <span className="font-semibold text-slate-800">Priority support</span> via WhatsApp &amp; Telegram is included on every plan.
         </p>
       </div>
     </div>
