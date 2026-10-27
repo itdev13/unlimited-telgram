@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader } from './Icons';
 
 // ── Button ────────────────────────────────────────────────
@@ -94,11 +95,14 @@ export function Modal({ open, onClose, children, maxWidth = 'max-w-md' }) {
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+  // Portal to <body> so the overlay escapes any parent with transform/overflow (which would
+  // otherwise trap `position: fixed` inside the content column, as seen in the iframe).
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
       <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       <div className={`relative w-full ${maxWidth} my-auto animate-scale-in`}>{children}</div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
