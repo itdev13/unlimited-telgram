@@ -693,6 +693,11 @@ function createWebhooksRouter(
       // Payment status for the subscription (FAILED → past_due, COMPLETE → active).
       case 'APP_PAYMENT_STATUS':
         return await handlePaymentStatus(req.body, subscriptionService, res);
+      // GHL also posts conversation-provider delivery notifications here. We handle actual
+      // sending via /ghl-outbound, so just ack these quietly (no "unknown type" noise).
+      case 'InboundMessage':
+      case 'OutboundMessage':
+        return res.json({ ok: true });
       default:
         console.warn(`Unknown app lifecycle event type: ${type}`);
         return res.json({ ok: true });
