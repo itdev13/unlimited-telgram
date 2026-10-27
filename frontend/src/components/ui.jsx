@@ -83,14 +83,21 @@ export function Modal({ open, onClose, children, maxWidth = 'max-w-md' }) {
     if (!open) return;
     const onKey = (e) => e.key === 'Escape' && onClose?.();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Lock body scroll while open so the backdrop always covers the full viewport
+    // (important inside the GHL iframe, where a scrolled page can clip a fixed overlay).
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [open, onClose]);
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full ${maxWidth} animate-scale-in`}>{children}</div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative w-full ${maxWidth} my-auto animate-scale-in`}>{children}</div>
     </div>
   );
 }
