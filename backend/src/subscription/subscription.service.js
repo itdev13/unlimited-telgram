@@ -76,6 +76,10 @@ class SubscriptionService {
         update.currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       }
       if (status === 'canceled') update.canceledAt = now;
+    } else if (this.trialDays <= 0) {
+      // Trials disabled (TRIAL_DAYS=0) → no free period. Fresh install requires a paid plan;
+      // it becomes 'active' when GHL confirms payment (APP_PAYMENT_STATUS COMPLETE).
+      update.status = 'inactive';
     } else {
       // Fresh install → grant trial once (abuse-proof via TrialLedger).
       const existingTrial = await TrialLedger.findOne({ locationId }).lean();

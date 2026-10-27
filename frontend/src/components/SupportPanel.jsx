@@ -97,7 +97,8 @@ export default function SupportPanel({ user, ssoPayload }) {
         </div>
       </div>
 
-      {/* Priority WhatsApp support — community + join + copy */}
+      {/* Priority WhatsApp support — hidden for now; re-enable by flipping false → true. */}
+      {false && (
       <div className="rounded-2xl p-4 bg-gradient-to-r from-[#eafaf0] to-[#f4fcf7] border border-[#c7ecd4] flex items-center gap-3.5 flex-wrap">
         <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center text-emerald-600 ring-1 ring-emerald-100 shrink-0">
           <Life size={22} />
@@ -130,6 +131,7 @@ export default function SupportPanel({ user, ssoPayload }) {
           </a>
         </div>
       </div>
+      )}
 
       {/* Book a call */}
       <a
