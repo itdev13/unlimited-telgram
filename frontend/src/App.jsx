@@ -98,7 +98,8 @@ export default function App() {
       <div className="animate-fade-up space-y-6">
         <Header connectedCount={connectedCount} />
 
-        <SubscriptionBanner sub={sub} onViewPlans={() => setTab('plans')} />
+        {/* Hide the trial/subscribe banner on the Plans tab — it already shows everything. */}
+        {tab !== 'plans' && <SubscriptionBanner sub={sub} onViewPlans={() => setTab('plans')} />}
 
         {/* Tabs */}
         <div className="flex items-center gap-1 p-1 bg-slate-100/80 rounded-xl w-fit">
