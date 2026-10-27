@@ -1,4 +1,3 @@
-import { ExternalLink } from './Icons';
 import { Badge } from './ui';
 
 export default function Header({ connectedCount = 0 }) {
@@ -12,17 +11,7 @@ export default function Header({ connectedCount = 0 }) {
           <h1 className="text-[20px] font-extrabold text-slate-900 tracking-tight leading-tight">
             Telegram Connector
           </h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-[13px] text-slate-500">Two-way Telegram for your CRM</p>
-            <a
-              href="https://telegram.vaultsuite.store/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#1784b8] hover:text-[#0f6a97]"
-            >
-              Docs <ExternalLink size={12} />
-            </a>
-          </div>
+          <p className="text-[13px] text-slate-500 mt-0.5">Two-way Telegram for your CRM</p>
         </div>
       </div>
 
