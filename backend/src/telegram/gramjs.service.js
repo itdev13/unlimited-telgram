@@ -457,7 +457,7 @@ class GramJsService {
       let result;
       try {
         result = await this.ghlService.addInboundMessage(locationId, {
-          conversationProviderId: installation.conversationProviderId,
+          conversationProviderId: installation.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
           contactId: activeContactId,
           message: messageText || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
@@ -470,7 +470,7 @@ class GramJsService {
         );
         activeContactId = recreated.ghlContactId;
         result = await this.ghlService.addInboundMessage(locationId, {
-          conversationProviderId: installation.conversationProviderId,
+          conversationProviderId: installation.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
           contactId: activeContactId,
           message: messageText || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
@@ -639,7 +639,7 @@ class GramJsService {
       if (mappingContactId && messageText) {
         try {
           await this.ghlService.addOutboundMessage(locationId, {
-            conversationProviderId: installation.conversationProviderId,
+            conversationProviderId: installation.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
             contactId: mappingContactId,
             message: messageText,
             altId: String(chatIdNum),
@@ -852,7 +852,7 @@ class GramJsService {
         );
 
         await this.ghlService.addInboundMessage(update.locationId, {
-          conversationProviderId: installation.conversationProviderId,
+          conversationProviderId: installation.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
           contactId: ghlContactId,
           message: parsed.text || undefined,
           altId: String(parsed.chatId),

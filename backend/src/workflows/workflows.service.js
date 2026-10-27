@@ -38,7 +38,7 @@ class WorkflowsService {
       const inst = await Installation.findOne({ locationId }).select('conversationProviderId').lean();
       if (!inst?.conversationProviderId) return;
       await this.ghl.addOutboundMessage(locationId, {
-        conversationProviderId: inst.conversationProviderId,
+        conversationProviderId: inst.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
         contactId,
         ...(text ? { message: text } : {}),
         ...(atts.length ? { attachments: atts } : {}),

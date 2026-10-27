@@ -242,7 +242,7 @@ function createWebhooksRouter(
       let result;
       try {
         result = await ghlService.addInboundMessage(locationId, {
-          conversationProviderId: installation.conversationProviderId,
+          conversationProviderId: installation.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
           contactId: activeContactId,
           message: messageText || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
@@ -255,7 +255,7 @@ function createWebhooksRouter(
         );
         activeContactId = recreated.ghlContactId;
         result = await ghlService.addInboundMessage(locationId, {
-          conversationProviderId: installation.conversationProviderId,
+          conversationProviderId: installation.conversationProviderId || process.env.GHL_CONVERSATION_PROVIDER_ID,
           contactId: activeContactId,
           message: messageText || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
