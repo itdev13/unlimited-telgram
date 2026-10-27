@@ -1,5 +1,4 @@
 import { Check, Spark, Bot, Phone, Bolt, Life } from './Icons';
-import { Badge } from './ui';
 
 function fmtLimit(n) {
   return n >= 9999 ? 'Unlimited' : n;
@@ -19,11 +18,6 @@ export default function PlansPanel({ plans = [], sub }) {
         <p className="text-[13.5px] text-slate-500 mt-1.5">
           One monthly price. Unlimited messages, unlimited workflow actions — no per-message fees, ever.
         </p>
-        {sub?.isTrial && (
-          <div className="mt-3 inline-flex">
-            <Badge tone="tg" dot>Free trial · {sub.trialDaysLeft} day{sub.trialDaysLeft === 1 ? '' : 's'} left</Badge>
-          </div>
-        )}
       </div>
 
       {!hasPlans ? (
